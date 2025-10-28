@@ -1,5 +1,6 @@
 const express = require("express")
 const path = require("path")
+const fs = require('fs').promises
 const layouts = require("express-ejs-layouts")
 const locale = require("./locales")
 const { renderCmn } = require("./middlewares")
@@ -14,10 +15,42 @@ app.set("layout", "layout")
 app.use(layouts)
 app.use(express.static(path.join(__dirname, "public")))
 
+
+app.get('/health', (req, res) => {
+	res.status(200).send('OK');
+});
+
+// /download/ 경로로 들어오는 GET 요청 처리
+app.get('/download/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+		const pdfPath = path.join(__dirname, 'pdf'); // 프로젝트 폴더 내의 pdf 폴더
+    const filePath = path.join(pdfPath, filename);
+
+    // 파일 존재 여부 확인
+    await fs.access(filePath);
+    
+    // 파일 다운로드 설정
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+		res.setHeader('Cache-Control', 'no-cache');
+    
+    // 파일 스트림으로 전송
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('File sending error:', err);
+        res.status(500).send('Error downloading file');
+      }
+    });
+  } catch (error) {
+    console.error('File access error:', error);
+    res.status(404).send('File not found');
+  }
+})
+
 app.get("/", (req, res) => {
   return res.redirect("/jp")
 })
-
 
 app.get("/en", renderCmn("en"), (req, res, next) => {
   res.render("home", { name: "home" })
